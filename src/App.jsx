@@ -1,57 +1,101 @@
-import React, { useEffect } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
-import { fetchAnecdotes, voteAnecdote, createAnecdote } from './reducers/anecdoteReducer'
-import { showNotification } from './reducers/notificationReducer'
-import AnecdoteForm from './components/AnecdoteForm'
-import Notification from './components/Notification'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  getAnecdotes,
+  createAnecdote,
+  updateAnecdote
+} from './services/anecdoteService'
+
+const AnecdoteForm = ({ addAnecdote }) => {
+  const [content, setContent] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (content.length < 5) {
+      alert('Anecdote must be at least 5 characters long')
+      return
+    }
+    addAnecdote({ content, votes: 0 })
+    setContent('')
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Write new anecdote"
+      />
+      <button type="submit">Add Anecdote</button>
+    </form>
+  )
+}
 
 const AnecdoteList = () => {
-  const dispatch = useDispatch()
-  const anecdotes = useSelector(state => state.anecdotes)
-  const filter = useSelector(state => state.filter)
+  const queryClient = useQueryClient()
 
-  const filtered = anecdotes.filter(a =>
-    a.content.toLowerCase().includes(filter.toLowerCase())
-  )
+  const updateMutation = useMutation(updateAnecdote, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(['anecdotes'])
+    }
+  })
 
-  const handleVote = (id, content) => {
-    dispatch(voteAnecdote(id))
-    dispatch(showNotification(`You voted for '${content}'`, 5))
+  const vote = (anecdote) => {
+    updateMutation.mutate({ ...anecdote, votes: anecdote.votes + 1 })
+  }
+
+  const {
+    data: anecdotes,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['anecdotes'],
+    queryFn: getAnecdotes,
+    retry: 1
+  })
+
+  if (isLoading) {
+    return <div>Loading anecdotes...</div>
+  }
+
+  if (isError) {
+    return <div>Anecdote service not available due to server problems</div>
   }
 
   return (
     <div>
-      {filtered.map(anecdote =>
-        <div key={anecdote.id}>
+      {anecdotes.map(anecdote => (
+        <div key={anecdote.id} style={{ marginBottom: 10 }}>
           <div>{anecdote.content}</div>
           <div>
-            has {anecdote.votes}
-            <button onClick={() => handleVote(anecdote.id, anecdote.content)}>vote</button>
+            has {anecdote.votes}{' '}
+            <button onClick={() => vote(anecdote)}>vote</button>
           </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
 
 const App = () => {
-  const dispatch = useDispatch()
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    dispatch(fetchAnecdotes())
-  }, [dispatch])
+  const createMutation = useMutation(createAnecdote, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(['anecdotes'])
+    }
+  })
 
-  const addNewAnecdote = async (content) => {
-    dispatch(createAnecdote(content))
-    dispatch(showNotification(`You added '${content}'`, 5))
+  const addAnecdote = (anecdote) => {
+    createMutation.mutate(anecdote)
   }
 
   return (
     <div>
       <h2>Anecdotes</h2>
-      <Notification />
+      <AnecdoteForm addAnecdote={addAnecdote} />
       <AnecdoteList />
-      <AnecdoteForm addNewAnecdote={addNewAnecdote} />
     </div>
   )
 }

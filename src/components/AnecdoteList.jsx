@@ -1,40 +1,60 @@
-import React, { useEffect } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
-import { initializeAnecdotes, voteAnecdote } from '../reducers/anecdoteReducer'
-import { showNotification } from '../reducers/notificationReducer'
+import React from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getAnecdotes, voteAnecdote } from '../services/anecdotes'
+import { useNotification } from '../NotificationContext'
 
 const AnecdoteList = () => {
-  const dispatch = useDispatch()
-  const anecdotes = useSelector(state => state.anecdotes)
-  const filter = useSelector(state => state.filter)
+  const queryClient = useQueryClient()
+  const { showNotification } = useNotification()
 
-  useEffect(() => {
-    dispatch(initializeAnecdotes())
-  }, [dispatch])
+  const { data: anecdotes, isLoading, isError } = useQuery({
+    queryKey: ['anecdotes'],
+    queryFn: getAnecdotes,
+    retry: 1,
+  })
 
-  const filteredAnecdotes = anecdotes
-    .filter(a => a.content.toLowerCase().includes(filter.toLowerCase()))
-    .sort((a, b) => b.votes - a.votes)
+  const voteMutation = useMutation({
+    mutationFn: voteAnecdote,
+    onSuccess: (updatedAnecdote) => {
+      const anecdotes = queryClient.getQueryData(['anecdotes'])
+      queryClient.setQueryData(
+        ['anecdotes'],
+        anecdotes.map((a) =>
+          a.id === updatedAnecdote.id ? updatedAnecdote : a
+        )
+      )
+      showNotification(`You voted '${updatedAnecdote.content}'`, 'info', 5)
+    },
+  })
 
   const handleVote = (anecdote) => {
-    dispatch(voteAnecdote(anecdote))
-    dispatch(showNotification(`You voted '${anecdote.content}'`, 10))
+    voteMutation.mutate({ ...anecdote, votes: anecdote.votes + 1 })
+  }
+
+  if (isLoading) {
+    return <div>loading data...</div>
+  }
+
+  if (isError) {
+    return <div>anecdote service not available due to server problems</div>
   }
 
   return (
     <div>
-      {filteredAnecdotes.map(anecdote =>
-        <div key={anecdote.id}>
-          <div>{anecdote.content}</div>
-          <div>
-            has {anecdote.votes}
-            <button onClick={() => handleVote(anecdote)}>vote</button>
+      {anecdotes
+        .slice()
+        .sort((a, b) => b.votes - a.votes)
+        .map((anecdote) => (
+          <div key={anecdote.id}>
+            <div>{anecdote.content}</div>
+            <div>
+              has {anecdote.votes}
+              <button onClick={() => handleVote(anecdote)}>vote</button>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
     </div>
   )
 }
 
 export default AnecdoteList
-

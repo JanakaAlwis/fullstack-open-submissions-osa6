@@ -1,5 +1,4 @@
 import axios from 'axios'
-
 const baseUrl = 'http://localhost:3001/anecdotes'
 
 export const getAnecdotes = async () => {
@@ -7,12 +6,15 @@ export const getAnecdotes = async () => {
   return response.data
 }
 
-export const createAnecdote = async (newAnecdote) => {
-  const response = await axios.post(baseUrl, newAnecdote)
+export const createAnecdote = async (anecdote) => {
+  if (anecdote.content.length < 5) {
+    throw new Error('Too short anecdote')
+  }
+  const response = await axios.post(baseUrl, anecdote)
   return response.data
 }
 
-export const updateAnecdote = async (updatedAnecdote) => {
-  const response = await axios.put(`${baseUrl}/${updatedAnecdote.id}`, updatedAnecdote)
+export const voteAnecdote = async (anecdote) => {
+  const response = await axios.put(`${baseUrl}/${anecdote.id}`, anecdote)
   return response.data
 }

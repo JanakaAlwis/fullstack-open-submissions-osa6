@@ -1,23 +1,31 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { useDispatch } from 'react-redux'
-import { addAnecdote } from '../reducers/anecdoteReducer'
+import { createAnecdote } from '../reducers/anecdoteReducer'
+import { showNotification } from '../reducers/notificationReducer'
 
 const AnecdoteForm = () => {
   const dispatch = useDispatch()
+  const inputRef = useRef()
 
-  const addNewAnecdote = (event) => {
+  const onSubmit = (event) => {
     event.preventDefault()
-    const content = event.target.anecdote.value
-    if(content.trim() === '') return
-
-    dispatch(addAnecdote(content))
-    event.target.anecdote.value = ''
+    const content = inputRef.current.value.trim()
+    if (content) {
+      const newAnecdote = {
+        id: Math.floor(Math.random() * 1000000),
+        content,
+        votes: 0,
+      }
+      dispatch(createAnecdote(newAnecdote))
+      dispatch(showNotification(`You added '${content}'`))
+      inputRef.current.value = ''
+    }
   }
 
   return (
-    <form onSubmit={addNewAnecdote}>
-      <input name="anecdote" />
-      <button type="submit">add anecdote</button>
+    <form onSubmit={onSubmit}>
+      <input ref={inputRef} />
+      <button type="submit">create</button>
     </form>
   )
 }

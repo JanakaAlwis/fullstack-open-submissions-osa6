@@ -1,58 +1,50 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice } from '@reduxjs/toolkit'
 import anecdoteService from '../services/anecdoteService'
-
-const initialState = []
-
-// Async thunk to fetch anecdotes from backend
-export const fetchAnecdotes = createAsyncThunk(
-  'anecdotes/fetchAll',
-  async () => {
-    const anecdotes = await anecdoteService.getAll()
-    return anecdotes
-  }
-)
-
-// Async thunk to create new anecdote in backend
-export const createAnecdote = createAsyncThunk(
-  'anecdotes/create',
-  async (content) => {
-    const newAnecdote = await anecdoteService.createNew(content)
-    return newAnecdote
-  }
-)
-
-// Async thunk to vote for anecdote (update)
-export const voteAnecdote = createAsyncThunk(
-  'anecdotes/vote',
-  async (id, { getState }) => {
-    const anecdote = getState().anecdotes.find(a => a.id === id)
-    const updatedAnecdote = { ...anecdote, votes: anecdote.votes + 1 }
-    const returnedAnecdote = await anecdoteService.update(updatedAnecdote)
-    return returnedAnecdote
-  }
-)
 
 const anecdoteSlice = createSlice({
   name: 'anecdotes',
-  initialState,
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchAnecdotes.fulfilled, (state, action) => {
-        return action.payload.sort((a, b) => b.votes - a.votes)
-      })
-      .addCase(createAnecdote.fulfilled, (state, action) => {
-        state.push(action.payload)
-      })
-      .addCase(voteAnecdote.fulfilled, (state, action) => {
-        const updated = action.payload
-        const index = state.findIndex(a => a.id === updated.id)
-        if (index !== -1) {
-          state[index] = updated
-          state.sort((a, b) => b.votes - a.votes)
-        }
-      })
+  initialState: [],
+  reducers: {
+    setAnecdotes(state, action) {
+      return action.payload
+    },
+    appendAnecdote(state, action) {
+      state.push(action.payload)
+    },
+    updateAnecdote(state, action) {
+      const updated = action.payload
+      return state.map(a => a.id !== updated.id ? a : updated)
+    }
   }
 })
+
+export const { setAnecdotes, appendAnecdote, updateAnecdote } = anecdoteSlice.actions
+
+// Thunks
+
+// 6.16 Fetch anecdotes from backend on app start
+export const initializeAnecdotes = () => {
+  return async dispatch => {
+    const anecdotes = await anecdoteService.getAll()
+    dispatch(setAnecdotes(anecdotes))
+  }
+}
+
+// 6.17 Create new anecdote in backend
+export const createAnecdote = (content) => {
+  return async dispatch => {
+    const newAnecdote = await anecdoteService.createNew(content)
+    dispatch(appendAnecdote(newAnecdote))
+  }
+}
+
+// 6.18 Vote an anecdote, update backend
+export const voteAnecdote = (anecdote) => {
+  return async dispatch => {
+    const updated = { ...anecdote, votes: anecdote.votes + 1 }
+    const returnedAnecdote = await anecdoteService.updateAnecdote(updated)
+    dispatch(updateAnecdote(returnedAnecdote))
+  }
+}
 
 export default anecdoteSlice.reducer

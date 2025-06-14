@@ -1,10 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit'
 
-const initialState = ''
-
 const notificationSlice = createSlice({
   name: 'notification',
-  initialState,
+  initialState: '',
   reducers: {
     setNotification(state, action) {
       return action.payload
@@ -15,13 +13,18 @@ const notificationSlice = createSlice({
   }
 })
 
+let timeoutId
+
 export const { setNotification, clearNotification } = notificationSlice.actions
 
-// Thunk to show notification for a certain duration (default 5 seconds)
+// 6.19 Improved notification action creator with timeout param (seconds)
 export const showNotification = (message, duration = 5) => {
   return dispatch => {
     dispatch(setNotification(message))
-    setTimeout(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+    timeoutId = setTimeout(() => {
       dispatch(clearNotification())
     }, duration * 1000)
   }
